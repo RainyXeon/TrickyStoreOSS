@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.ServiceManager
 import android.os.SystemProperties
+import android.telephony.TelephonyManager
 import io.github.beakthoven.TrickyStoreOSS.AttestUtils.CachedAttestData
 import io.github.beakthoven.TrickyStoreOSS.config.CustomPatchLevel
 import io.github.beakthoven.TrickyStoreOSS.config.PkgConfig
@@ -17,6 +18,8 @@ import io.github.beakthoven.TrickyStoreOSS.logging.Logger
 import org.bouncycastle.asn1.ASN1Integer
 import org.bouncycastle.asn1.DEROctetString
 import org.bouncycastle.asn1.DERSequence
+import org.bouncycastle.asn1.ASN1Encodable
+import org.bouncycastle.asn1.DERTaggedObject
 import java.security.MessageDigest
 import java.util.concurrent.ThreadLocalRandom
 
@@ -226,7 +229,17 @@ object AndroidUtils {
             ByteArray(32)
         }
     }
+    // Device Prop
 
+    // Device Sensitive Prop
+    val deviceImei: ByteArray?
+        get() = SystemProperties.get("ro.ril.oem.imei", null)?.toByteArray()
+    val deviceMeid: ByteArray?
+        get() = SystemProperties.get("ro.ril.oem.meid", null)?.toByteArray()
+    val deviceImei2: ByteArray?
+        get() = SystemProperties.get("ro.ril.oem.imei2", null)?.toByteArray()
+    val deviceSerialNumber: ByteArray?
+        get() = SystemProperties.get("ro.serialno", null)?.toByteArray()
 }
 
 fun String.trimLine(): String = trim().split("\n").joinToString("\n") { it.trim() }

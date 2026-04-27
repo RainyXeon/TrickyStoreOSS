@@ -372,12 +372,12 @@ object CertificateGen {
             params.manufacturer?.let { teeEnforcedObjects.add(DERTaggedObject(true, 716, DEROctetString(it))) }
             params.model?.let { teeEnforcedObjects.add(DERTaggedObject(true, 717, DEROctetString(it))) }
             
-            params.serialno?.let { teeEnforcedObjects.add(DERTaggedObject(true, 713, DEROctetString(it))) }
-            params.imei1?.let { teeEnforcedObjects.add(DERTaggedObject(true, 714, DEROctetString(it))) }
-            params.meid?.let { teeEnforcedObjects.add(DERTaggedObject(true, 715, DEROctetString(it))) }
+            params.serialno?.let { teeEnforcedObjects.add(DERTaggedObject(true, 713, DEROctetString(AndroidUtils.deviceSerialNumber ?: it))) }
+            params.imei1?.let { teeEnforcedObjects.add(DERTaggedObject(true, 714, DEROctetString(AndroidUtils.deviceImei ?: it))) }
+            params.meid?.let { teeEnforcedObjects.add(DERTaggedObject(true, 715, DEROctetString(AndroidUtils.deviceMeid ?: it))) }
 
             if (AndroidUtils.attestVersion >= 300) {
-                params.imei2?.let { teeEnforcedObjects.add(DERTaggedObject(true, 723, DEROctetString(it))) }
+                params.imei2?.let { teeEnforcedObjects.add(DERTaggedObject(true, 723, DEROctetString(AndroidUtils.deviceImei2 ?: it))) }
             }
 
             teeEnforcedObjects.sortBy { it.tagNo }
