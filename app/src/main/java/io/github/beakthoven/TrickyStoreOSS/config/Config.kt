@@ -11,9 +11,16 @@ import android.os.FileObserver
 import android.os.IBinder
 import android.os.IInterface
 import android.os.ServiceManager
+import android.os.SystemProperties
 import io.github.beakthoven.TrickyStoreOSS.AttestUtils.TEEStatus
 import io.github.beakthoven.TrickyStoreOSS.KeyBoxUtils
 import io.github.beakthoven.TrickyStoreOSS.logging.Logger
+import com.akuleshov7.ktoml.Toml
+import com.akuleshov7.ktoml.TomlIndentation
+import com.akuleshov7.ktoml.TomlInputConfig
+import com.akuleshov7.ktoml.TomlOutputConfig
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
 import java.io.File
 
 object PkgConfig {
@@ -65,7 +72,7 @@ object PkgConfig {
     private const val TARGET_FILE = "target.txt"
     private const val KEYBOX_FILE = "keybox.xml"
     private const val TEE_STATUS_FILE = "tee_status"
-    private const val PATCHLEVEL_FILE = "security_patch.txt"
+    private const val DEV_CONFIG_FILE = "config.toml"
     private val root = File(CONFIG_PATH)
 
     @Volatile
@@ -103,7 +110,7 @@ object PkgConfig {
             when (path) {
                 TARGET_FILE -> updateTargetPackages(f)
                 KEYBOX_FILE -> updateKeyBox(f)
-                PATCHLEVEL_FILE -> updatePatchLevel(f)
+                DEV_CONFIG_FILE -> parseDevConfig(f)
             }
         }
     }
@@ -122,9 +129,14 @@ object PkgConfig {
         } else {
             updateKeyBox(keybox)
         }
+        val fDevConfig = File(root, DEV_CONFIG_FILE)
+        if (!fDevConfig.exists()) {
+            fDevConfig.createNewFile()
+            fDevConfig.writeText(Toml.encodeToString(devConfig))
+        } else {
+            parseDevConfig(fDevConfig)
+        }
         storeTEEStatus(root)
-        val patchFile = File(root, PATCHLEVEL_FILE)
-        updatePatchLevel(if (patchFile.exists()) patchFile else null)
         ConfigObserver.startWatching()
     }
 
@@ -175,41 +187,46 @@ object PkgConfig {
         return false
     }.onFailure { Logger.e("failed to get packages", it) }.getOrNull() ?: false
 
-    @Volatile
-    var _customPatchLevel: CustomPatchLevel? = null
-
-    fun updatePatchLevel(f: File?) = runCatching {
-        if (f == null || !f.exists()) {
-            _customPatchLevel = null
-            return@runCatching
-        }
-        val lines = f.readLines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }
-        if (lines.isEmpty()) {
-            _customPatchLevel = null
-            return@runCatching
-        }
-        if (lines.size == 1 && !lines[0].contains("=")) {
-            _customPatchLevel = CustomPatchLevel(all = lines[0])
-            return@runCatching
-        }
-        val map = mutableMapOf<String, String>()
-        for (line in lines) {
-            val idx = line.indexOf('=')
-            if (idx > 0) {
-                val key = line.substring(0, idx).trim().lowercase()
-                val value = line.substring(idx + 1).trim()
-                map[key] = value
-            }
-        }
-        val all = map["all"]
-        _customPatchLevel = CustomPatchLevel(
-            system = map["system"] ?: all,
-            vendor = map["vendor"] ?: all,
-            boot = map["boot"] ?: all,
-            all = all
+    private val toml = Toml(
+        inputConfig = TomlInputConfig(
+            ignoreUnknownNames = false,
+            allowEmptyValues = true,
+            allowNullValues = true,
+            allowEscapedQuotesInLiteralStrings = true,
+            allowEmptyToml = true,
+            ignoreDefaultValues = false,
+        ),
+        outputConfig = TomlOutputConfig(
+            indentation = TomlIndentation.FOUR_SPACES,
         )
+    )
+
+    var devConfig = DeviceConfig()
+        private set
+
+    @Serializable
+    data class DeviceConfig(
+        val securityPatch: String = Build.VERSION.SECURITY_PATCH,
+        val osVersion: Int = Build.VERSION.SDK_INT,
+        val brand: String = Build.BRAND,
+        val device: String = Build.DEVICE,
+        val product: String = Build.PRODUCT,
+        val manufacturer: String = Build.MANUFACTURER,
+        val model: String = Build.MODEL,
+        val serial: String = SystemProperties.get("ro.serialno", ""),
+        val meid: String = SystemProperties.get("ro.ril.oem.imei", ""),
+        val imei: String = SystemProperties.get("ro.ril.oem.meid", ""),
+        val imei2: String = SystemProperties.get("ro.ril.oem.imei2", ""),
+    )
+
+    fun parseDevConfig(f: File?) = runCatching {
+        f ?: return@runCatching
+        if (!f.exists()) return@runCatching
+        devConfig = toml.decodeFromString(DeviceConfig.serializer(), f.readText())
+        // in case there're new updates for device config
+        f.writeText(Toml.encodeToString(devConfig))
     }.onFailure {
-        Logger.e("failed to update patch level", it)
+        Logger.e("", it)
     }
 
     private fun waitAndGetSystemService(name: String): IBinder? {
@@ -231,10 +248,3 @@ object PkgConfig {
         return null
     }
 }
-
-data class CustomPatchLevel(
-    val system: String? = null,
-    val vendor: String? = null,
-    val boot: String? = null,
-    val all: String? = null
-)

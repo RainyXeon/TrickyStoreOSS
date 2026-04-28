@@ -365,21 +365,8 @@ object CertificateGen {
             if (AndroidUtils.attestVersion >= 400) {
                 teeEnforcedObjects.add(DERTaggedObject(true, 724, moduleHash))
             }
-            
-            params.brand?.let { teeEnforcedObjects.add(DERTaggedObject(true, 710, DEROctetString(it))) }
-            params.device?.let { teeEnforcedObjects.add(DERTaggedObject(true, 711, DEROctetString(it))) }
-            params.product?.let { teeEnforcedObjects.add(DERTaggedObject(true, 712, DEROctetString(it))) }
-            params.manufacturer?.let { teeEnforcedObjects.add(DERTaggedObject(true, 716, DEROctetString(it))) }
-            params.model?.let { teeEnforcedObjects.add(DERTaggedObject(true, 717, DEROctetString(it))) }
-            
-            params.serialno?.let { teeEnforcedObjects.add(DERTaggedObject(true, 713, DEROctetString(AndroidUtils.deviceSerialNumber ?: it))) }
-            params.imei1?.let { teeEnforcedObjects.add(DERTaggedObject(true, 714, DEROctetString(AndroidUtils.deviceImei ?: it))) }
-            params.meid?.let { teeEnforcedObjects.add(DERTaggedObject(true, 715, DEROctetString(AndroidUtils.deviceMeid ?: it))) }
 
-            if (AndroidUtils.attestVersion >= 300) {
-                params.imei2?.let { teeEnforcedObjects.add(DERTaggedObject(true, 723, DEROctetString(AndroidUtils.deviceImei2 ?: it))) }
-            }
-
+            teeEnforcedObjects.addAll(AndroidUtils.telephonyInfos)
             teeEnforcedObjects.sortBy { it.tagNo }
             
             val softwareEnforcedObjects = arrayOf<ASN1Encodable>(

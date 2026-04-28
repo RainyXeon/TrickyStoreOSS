@@ -12,7 +12,6 @@ import android.os.ServiceManager
 import android.os.SystemProperties
 import android.telephony.TelephonyManager
 import io.github.beakthoven.TrickyStoreOSS.AttestUtils.CachedAttestData
-import io.github.beakthoven.TrickyStoreOSS.config.CustomPatchLevel
 import io.github.beakthoven.TrickyStoreOSS.config.PkgConfig
 import io.github.beakthoven.TrickyStoreOSS.logging.Logger
 import org.bouncycastle.asn1.ASN1Integer
@@ -80,77 +79,34 @@ object AndroidUtils {
     }
 
     val patchLevel: Int
-        get() = getCustomPatchLevel("system", false) 
-            ?: Build.VERSION.SECURITY_PATCH.convertPatchLevel(false)
+        get() = runCatching {
+            PkgConfig.devConfig.securityPatch.convertPatchLevel(false)
+        }.getOrDefault(Build.VERSION.SECURITY_PATCH.convertPatchLevel(false))
 
     val patchLevelLong: Int
-        get() = getCustomPatchLevel("system", true) 
-            ?: Build.VERSION.SECURITY_PATCH.convertPatchLevel(true)
+        get() = runCatching {
+            PkgConfig.devConfig.securityPatch.convertPatchLevel(true)
+        }.getOrDefault(Build.VERSION.SECURITY_PATCH.convertPatchLevel(false))
 
     val vendorPatchLevel: Int
-        get() = getCustomPatchLevel("vendor", false) 
-            ?: Build.VERSION.SECURITY_PATCH.convertPatchLevel(false)
+        get() = runCatching {
+            PkgConfig.devConfig.securityPatch.convertPatchLevel(true)
+        }.getOrDefault(Build.VERSION.SECURITY_PATCH.convertPatchLevel(false))
 
     val vendorPatchLevelLong: Int
-        get() = getCustomPatchLevel("vendor", true) 
-            ?: Build.VERSION.SECURITY_PATCH.convertPatchLevel(true)
+        get() = runCatching {
+            PkgConfig.devConfig.securityPatch.convertPatchLevel(true)
+        }.getOrDefault(Build.VERSION.SECURITY_PATCH.convertPatchLevel(false))
 
     val bootPatchLevel: Int
-        get() = getCustomPatchLevel("boot", false) 
-            ?: Build.VERSION.SECURITY_PATCH.convertPatchLevel(false)
+        get() = runCatching {
+            PkgConfig.devConfig.securityPatch.convertPatchLevel(true)
+        }.getOrDefault(Build.VERSION.SECURITY_PATCH.convertPatchLevel(false))
 
     val bootPatchLevelLong: Int
-        get() = getCustomPatchLevel("boot", true) 
-            ?: Build.VERSION.SECURITY_PATCH.convertPatchLevel(true)
-
-    private val customPatchLevel: CustomPatchLevel?
-        get() = PkgConfig._customPatchLevel
-
-    private fun getCustomPatchLevel(component: String, isLong: Boolean): Int? {
-        val config = customPatchLevel ?: return null
-        val value = when (component) {
-            "system" -> config.system ?: config.all
-            "vendor" -> config.vendor ?: config.all
-            "boot" -> config.boot ?: config.all
-            else -> config.all
-        } ?: return null
-
-        when {
-            value.equals("no", ignoreCase = true) -> return null
-            value.equals("prop", ignoreCase = true) -> return null
-        }
-
-        return parsePatchLevelValue(value, component, isLong)
-    }
-
-    private fun parsePatchLevelValue(value: String, component: String, isLong: Boolean): Int? {
-        val normalized = value.replace("-", "")
-        
-        return try {
-            when (normalized.length) {
-                8 -> {
-                    val year = normalized.substring(0, 4).toInt()
-                    val month = normalized.substring(4, 6).toInt()
-                    val day = normalized.substring(6, 8).toInt()
-                    if (isLong) year * 10000 + month * 100 + day
-                    else year * 100 + month
-                }
-                6 -> {
-                    val year = normalized.substring(0, 4).toInt()
-                    val month = normalized.substring(4, 6).toInt()
-                    if (isLong) year * 10000 + month * 100
-                    else year * 100 + month
-                }
-                else -> {
-                    Logger.e("Invalid patch level length for $component: $normalized")
-                    null
-                }
-            }
-        } catch (e: NumberFormatException) {
-            Logger.e("Patch level parse error for $component=$value", e)
-            null
-        }
-    }
+        get() = runCatching {
+            PkgConfig.devConfig.securityPatch.convertPatchLevel(true)
+        }.getOrDefault(Build.VERSION.SECURITY_PATCH.convertPatchLevel(false))
 
     private val osVersionMap = mapOf(
         Build.VERSION_CODES.BAKLAVA to 160000,
@@ -164,24 +120,43 @@ object AndroidUtils {
     )
 
     val osVersion: Int
-        get() = CachedAttestData?.osVersion ?: osVersionMap[Build.VERSION.SDK_INT] ?: 160000
+        // get() = CachedAttestData?.osVersion ?: osVersionMap[Build.VERSION.SDK_INT] ?: 160000
+        get() = PkgConfig.devConfig.osVersion.run {
+            if (this > 0) return@run getOsVersion(this)
+            else return@run getOsVersion(Build.VERSION.SDK_INT)
+        }
 
-    private val attestVersionMap = mapOf(
-        Build.VERSION_CODES.Q to 4,                   // Keymaster 4.1
-        Build.VERSION_CODES.R to 4,                   // Keymaster 4.1
-        Build.VERSION_CODES.S to 100,                 // KeyMint 1.0
-        Build.VERSION_CODES.S_V2 to 100,              // KeyMint 1.0
-        Build.VERSION_CODES.TIRAMISU to 200,          // KeyMint 2.0
-        Build.VERSION_CODES.UPSIDE_DOWN_CAKE to 300,  // KeyMint 3.0
-        Build.VERSION_CODES.VANILLA_ICE_CREAM to 300, // KeyMint 3.0
-        Build.VERSION_CODES.BAKLAVA to 400            // KeyMint 4.0
-    )
+    private fun getOsVersion(num: Int) = when (num) {
+        Build.VERSION_CODES.BAKLAVA -> 160000
+        Build.VERSION_CODES.VANILLA_ICE_CREAM -> 150000
+        Build.VERSION_CODES.UPSIDE_DOWN_CAKE -> 140000
+        Build.VERSION_CODES.TIRAMISU -> 130000
+        Build.VERSION_CODES.S_V2 -> 120100
+        Build.VERSION_CODES.S -> 120000
+        Build.VERSION_CODES.R -> 110000
+        Build.VERSION_CODES.Q -> 100000
+        else -> 160000
+    }
 
+    // private val attestVersionMap = mapOf(
+    //     Build.VERSION_CODES.Q to 4,                   // Keymaster 4.1
+    //     Build.VERSION_CODES.R to 4,                   // Keymaster 4.1
+    //     Build.VERSION_CODES.S to 100,                 // KeyMint 1.0
+    //     Build.VERSION_CODES.S_V2 to 100,              // KeyMint 1.0
+    //     Build.VERSION_CODES.TIRAMISU to 200,          // KeyMint 2.0
+    //     Build.VERSION_CODES.UPSIDE_DOWN_CAKE to 300,  // KeyMint 3.0
+    //     Build.VERSION_CODES.VANILLA_ICE_CREAM to 300, // KeyMint 3.0
+    //     Build.VERSION_CODES.BAKLAVA to 400            // KeyMint 4.0
+    // )
+
+    // INFO: this is just a workaround to make some device can pass wallet
     val attestVersion: Int
-        get() = CachedAttestData?.attestVersion ?: attestVersionMap[Build.VERSION.SDK_INT] ?: 400
+        // get() = CachedAttestData?.attestVersion ?: attestVersionMap[Build.VERSION.SDK_INT] ?: 400
+        get() = 400
 
     val keymasterVersion: Int
-        get() = CachedAttestData?.keymasterVersion ?: if (attestVersion == 4) 41 else attestVersion
+        // get() = CachedAttestData?.keymasterVersion ?: if (attestVersion == 4) 41 else attestVersion
+        get() = 400
 
     fun String.convertPatchLevel(isLong: Boolean): Int = runCatching {
         val parts = split("-")
@@ -229,17 +204,21 @@ object AndroidUtils {
             ByteArray(32)
         }
     }
-    // Device Prop
 
-    // Device Sensitive Prop
-    val deviceImei: ByteArray?
-        get() = SystemProperties.get("ro.ril.oem.imei", null)?.toByteArray()
-    val deviceMeid: ByteArray?
-        get() = SystemProperties.get("ro.ril.oem.meid", null)?.toByteArray()
-    val deviceImei2: ByteArray?
-        get() = SystemProperties.get("ro.ril.oem.imei2", null)?.toByteArray()
-    val deviceSerialNumber: ByteArray?
-        get() = SystemProperties.get("ro.serialno", null)?.toByteArray()
+    val telephonyInfos by lazy {
+        mutableListOf<DERTaggedObject>().apply {
+            add(DERTaggedObject(true, 710, DEROctetString(PkgConfig.devConfig.brand.toByteArray())))
+            add(DERTaggedObject(true, 711, DEROctetString(PkgConfig.devConfig.device.toByteArray())))
+            add(DERTaggedObject(true, 712, DEROctetString(PkgConfig.devConfig.product.toByteArray())))
+            add(DERTaggedObject(true, 716, DEROctetString(PkgConfig.devConfig.manufacturer.toByteArray())))
+            add(DERTaggedObject(true, 717, DEROctetString(PkgConfig.devConfig.model.toByteArray())))
+
+            add(DERTaggedObject(true, 713, DEROctetString(PkgConfig.devConfig.serial.toByteArray())))
+            add(DERTaggedObject(true, 714, DEROctetString(PkgConfig.devConfig.imei.toByteArray())))
+            add(DERTaggedObject(true, 715, DEROctetString(PkgConfig.devConfig.meid.toByteArray())))
+            add(DERTaggedObject(true, 723, DEROctetString(PkgConfig.devConfig.imei2.toByteArray())))
+        }.toList()
+    }
 }
 
 fun String.trimLine(): String = trim().split("\n").joinToString("\n") { it.trim() }

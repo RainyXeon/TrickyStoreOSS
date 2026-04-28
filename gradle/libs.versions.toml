@@ -4,14 +4,18 @@ annotation = "1.9.1"
 jdk18on = "1.81"
 kotlin = "2.2.10"
 libcxx = "28.1.13356709"
+ktoml = "0.7.0"
 
 [libraries]
 annotation = { module = "androidx.annotation:annotation", version.ref = "annotation" }
 org-bouncycastle-bcpkix-jdk18on = { module = "org.bouncycastle:bcpkix-jdk18on", version.ref = "jdk18on" }
 org-lsposed-libcxx-libcxx = { module = "org.lsposed.libcxx:libcxx", version.ref = "libcxx" }
+ktoml-core = { module = "com.akuleshov7:ktoml-core", version.ref = "ktoml" }
+ktoml-file = { module = "com.akuleshov7:ktoml-file", version.ref = "ktoml" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin"}
 

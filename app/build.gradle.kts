@@ -7,6 +7,7 @@ import java.io.ByteArrayOutputStream
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.kotlin.android)
 }
 
@@ -94,6 +95,8 @@ dependencies {
     compileOnly(libs.annotation)
     implementation(libs.org.bouncycastle.bcpkix.jdk18on)
     implementation(libs.org.lsposed.libcxx.libcxx)
+    implementation(libs.ktoml.core)
+    implementation(libs.ktoml.file)
 }
 
 afterEvaluate {
