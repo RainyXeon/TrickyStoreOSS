@@ -391,10 +391,10 @@ object CertificateGen {
         params: KeyGenParameters,
         securityLevel: Int = 1
     ): ASN1OctetString {
-        val attestationVersion = ASN1Integer(AndroidUtils.attestVersion.toLong())
-        val attestationSecurityLevel = ASN1Enumerated(securityLevel)
-        val keymasterVersion = ASN1Integer(AndroidUtils.keymasterVersion.toLong())
-        val keymasterSecurityLevel = ASN1Enumerated(securityLevel)
+        val attestationVersion = ASN1Integer(400)
+        val attestationSecurityLevel = ASN1Enumerated(1)
+        val keymasterVersion = ASN1Integer(400)
+        val keymasterSecurityLevel = ASN1Enumerated(1)
         val attestationChallenge = DEROctetString(params.attestationChallenge ?: ByteArray(0))
         val uniqueId = DEROctetString(ByteArray(0))
         val softwareEnforced = DERSequence(softwareEnforcedEncodables)
